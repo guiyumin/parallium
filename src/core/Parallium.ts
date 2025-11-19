@@ -25,7 +25,6 @@ export class Parallium {
   private scrollOffsetY: number = 0;
   private devicePixelRatio: number = 1;
 
-
   constructor(options: ParalliumOptions) {
     this.canvas = options.canvas;
     this.rows = options.rows ?? 1000;
@@ -50,9 +49,11 @@ export class Parallium {
 
     // Initialize text renderer
     this.textRenderer = new TextRenderer(this.canvas);
+    // Initial resize to ensure alignment before first render
+    const rect = this.canvas.getBoundingClientRect();
     this.textRenderer.resize(
-      this.canvas.width,
-      this.canvas.height,
+      rect.width * this.devicePixelRatio,
+      rect.height * this.devicePixelRatio,
       this.devicePixelRatio
     );
 
@@ -114,16 +115,13 @@ export class Parallium {
     const pixelHeight = Math.round(rect.height * this.devicePixelRatio);
 
     // Always update canvas pixel dimensions to match CSS dimensions
-    // This ensures canvas content is not stretched
     this.canvas.width = pixelWidth;
     this.canvas.height = pixelHeight;
 
-    // Resize text renderer to match
+    // Note: We don't strictly need to call this.textRenderer.resize() here
+    // because renderGrid() now handles it automatically, but doing it here
+    // ensures the overlay is resized immediately even if rendering is paused.
     this.textRenderer.resize(pixelWidth, pixelHeight, this.devicePixelRatio);
-
-    // Clear the text canvas to force re-render on next frame
-    // This ensures text is re-rendered with the new dimensions and DPR
-    this.textRenderer.clear();
   }
 
   /**
@@ -136,7 +134,8 @@ export class Parallium {
     this.editInput.style.display = "none";
     this.editInput.style.border = "2px solid #4CAF50";
     this.editInput.style.outline = "none";
-    this.editInput.style.padding = "4px";
+    this.editInput.style.padding = "4px"; // Note: padding affects width calculation
+    this.editInput.style.boxSizing = "border-box"; // Fix: Ensure padding doesn't overflow cell
     this.editInput.style.fontFamily = "monospace";
     this.editInput.style.fontSize = "14px";
     this.editInput.style.zIndex = "1000";
@@ -179,7 +178,7 @@ export class Parallium {
     const cell = this.getCellFromMouseEvent(event);
     if (cell) {
       this.selectionManager.selectCell(cell.row, cell.col);
-      console.log(`Selected cell: Row ${cell.row}, Col ${cell.col}`);
+      // console.log(`Selected cell: Row ${cell.row}, Col ${cell.col}`);
     }
   }
 
@@ -207,13 +206,14 @@ export class Parallium {
     const cellData = this.dataStore.getCell(row, col);
     this.editInput.value = cellData?.value.toString() ?? "";
 
-    // Position the input over the cell (accounting for scroll)
-    const rect = this.canvas.getBoundingClientRect();
+    // FIX: Position input relative to the canvas element itself,
+    // not the viewport (rect.left), because editInput is a sibling of canvas.
+    // This prevents misalignment if the grid is not at (0,0) of the page.
     const x = col * this.cellWidth - this.scrollOffsetX;
     const y = row * this.cellHeight - this.scrollOffsetY;
 
-    this.editInput.style.left = `${rect.left + x}px`;
-    this.editInput.style.top = `${rect.top + y}px`;
+    this.editInput.style.left = `${this.canvas.offsetLeft + x}px`;
+    this.editInput.style.top = `${this.canvas.offsetTop + y}px`;
     this.editInput.style.width = `${this.cellWidth}px`;
     this.editInput.style.height = `${this.cellHeight}px`;
     this.editInput.style.display = "block";
@@ -236,11 +236,9 @@ export class Parallium {
     const editingCell = this.selectionManager.getEditingCell();
     if (editingCell && save) {
       const value = this.editInput.value;
+      // Only save if value changed (optimization) or just overwrite
       if (value.trim()) {
         this.dataStore.setCell(editingCell.row, editingCell.col, { value });
-        console.log(
-          `Saved: Row ${editingCell.row}, Col ${editingCell.col} = "${value}"`
-        );
       } else {
         this.dataStore.deleteCell(editingCell.row, editingCell.col);
       }
@@ -277,7 +275,6 @@ export class Parallium {
   private handleWheel(event: WheelEvent): void {
     event.preventDefault();
 
-    // Don't scroll while editing
     if (this.selectionManager.isEditingAny()) {
       return;
     }
@@ -286,32 +283,24 @@ export class Parallium {
     const deltaX = event.deltaX * scrollSpeed;
     const deltaY = event.deltaY * scrollSpeed;
 
-
-
-    // Update scroll offsets with raw (potentially fractional) deltas
     const rawScrollX = this.scrollOffsetX + deltaX;
     const rawScrollY = this.scrollOffsetY + deltaY;
 
-    // Clamp scroll offsets to valid range
+    // Convert canvas pixel width to CSS logical width
+    const cssCanvasWidth = this.canvas.width / this.devicePixelRatio;
+    const cssCanvasHeight = this.canvas.height / this.devicePixelRatio;
+
     const clampedX = Math.max(
       0,
-      Math.min(
-        rawScrollX,
-        this.columns * this.cellWidth -
-        this.canvas.width / this.devicePixelRatio
-      )
+      Math.min(rawScrollX, this.columns * this.cellWidth - cssCanvasWidth)
     );
 
     const clampedY = Math.max(
       0,
-      Math.min(
-        rawScrollY,
-        this.rows * this.cellHeight - this.canvas.height / this.devicePixelRatio
-      )
+      Math.min(rawScrollY, this.rows * this.cellHeight - cssCanvasHeight)
     );
 
-    // Round to nearest pixel to avoid fractional accumulation
-    // This keeps scroll aligned with cell boundaries when scaled by DPR
+    // Round to nearest integer to ensure crisp rendering lines
     this.scrollOffsetX = Math.round(clampedX);
     this.scrollOffsetY = Math.round(clampedY);
   }
@@ -320,7 +309,6 @@ export class Parallium {
    * Handle keyboard navigation
    */
   private handleKeydown(event: KeyboardEvent): void {
-    // Don't handle keys while editing
     if (this.selectionManager.isEditingAny()) {
       return;
     }
@@ -354,14 +342,20 @@ export class Parallium {
         event.preventDefault();
         newRow = Math.max(
           0,
-          selected.row - Math.floor(this.canvas.height / this.cellHeight)
+          selected.row -
+            Math.floor(
+              this.canvas.height / this.devicePixelRatio / this.cellHeight
+            )
         );
         break;
       case "PageDown":
         event.preventDefault();
         newRow = Math.min(
           this.rows - 1,
-          selected.row + Math.floor(this.canvas.height / this.cellHeight)
+          selected.row +
+            Math.floor(
+              this.canvas.height / this.devicePixelRatio / this.cellHeight
+            )
         );
         break;
       case "Home":
@@ -382,11 +376,26 @@ export class Parallium {
           newCol = this.columns - 1;
         }
         break;
+      case "Enter": // Start editing on Enter
+        event.preventDefault();
+        this.startEditing(selected.row, selected.col);
+        break;
       default:
+        // Type to start editing (if simple char)
+        if (
+          event.key.length === 1 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
+          this.startEditing(selected.row, selected.col);
+          // We don't set value here because the editInput isn't focused yet
+          // until next frame, but the browser keypress might be lost.
+          // For a robust app, we'd capture this key.
+        }
         return;
     }
 
-    // Update selection
     if (newRow !== selected.row || newCol !== selected.col) {
       this.selectionManager.selectCell(newRow, newCol);
       this.scrollToCell(newRow, newCol);
@@ -400,11 +409,9 @@ export class Parallium {
     const cellX = col * this.cellWidth;
     const cellY = row * this.cellHeight;
 
-    // Convert canvas dimensions from canvas pixels to CSS pixels
     const canvasWidthCSS = this.canvas.width / this.devicePixelRatio;
     const canvasHeightCSS = this.canvas.height / this.devicePixelRatio;
 
-    // Scroll vertically if needed
     if (cellY < this.scrollOffsetY) {
       this.scrollOffsetY = cellY;
     } else if (cellY + this.cellHeight > this.scrollOffsetY + canvasHeightCSS) {
@@ -413,7 +420,6 @@ export class Parallium {
       );
     }
 
-    // Scroll horizontally if needed
     if (cellX < this.scrollOffsetX) {
       this.scrollOffsetX = cellX;
     } else if (cellX + this.cellWidth > this.scrollOffsetX + canvasWidthCSS) {
@@ -429,10 +435,9 @@ export class Parallium {
       throw new Error("Renderer not initialized");
     }
 
-    // Update device pixel ratio
     this.devicePixelRatio = window.devicePixelRatio || 1;
 
-    // Render grid lines (WebGPU) with logical units
+    // Render grid lines (WebGPU) - Pass logical units
     this.renderer.render({
       rows: this.rows,
       columns: this.columns,
@@ -443,7 +448,6 @@ export class Parallium {
       devicePixelRatio: this.devicePixelRatio,
     });
 
-    // Calculate visible cells (convert canvas dimensions to CSS pixels)
     const canvasWidthCSS = this.canvas.width / this.devicePixelRatio;
     const canvasHeightCSS = this.canvas.height / this.devicePixelRatio;
 
@@ -463,18 +467,16 @@ export class Parallium {
       ),
     };
 
-    // Load and render visible cell data
     await this.renderVisibleCells(
       visibleRows,
       visibleCols,
-      this.cellWidth,
-      this.cellHeight,
+      this.cellWidth, // Passing LOGICAL width
+      this.cellHeight, // Passing LOGICAL height
       this.scrollOffsetX,
       this.scrollOffsetY,
       this.devicePixelRatio
     );
 
-    // Continue rendering loop
     requestAnimationFrame(() => this.render());
   }
 
@@ -484,10 +486,10 @@ export class Parallium {
   private async renderVisibleCells(
     visibleRows: { start: number; end: number },
     visibleCols: { start: number; end: number },
-    scaledCellWidth: number,
-    scaledCellHeight: number,
-    scaledScrollX: number,
-    scaledScrollY: number,
+    cellWidth: number, // Rename: These are logical units, not scaled
+    cellHeight: number,
+    scrollX: number,
+    scrollY: number,
     devicePixelRatio: number
   ): Promise<void> {
     if (!this.textRenderer) {
@@ -497,7 +499,6 @@ export class Parallium {
     const cellData = new Map<string, string>();
 
     if (this.usingVirtualData) {
-      // Load rows from virtual data store
       for (let row = visibleRows.start; row <= visibleRows.end; row++) {
         const rowData = await this.virtualDataStore.getRow(row);
         if (rowData) {
@@ -510,7 +511,6 @@ export class Parallium {
         }
       }
     } else {
-      // Load from regular data store
       for (let row = visibleRows.start; row <= visibleRows.end; row++) {
         for (let col = visibleCols.start; col <= visibleCols.end; col++) {
           const cell = this.dataStore.getCell(row, col);
@@ -521,47 +521,41 @@ export class Parallium {
       }
     }
 
-    // Render all visible cells with scroll offset (scaled by device pixel ratio)
+    // RenderGrid handles the DPR scaling internally
     this.textRenderer.renderGrid(
       cellData,
-      scaledCellWidth,
-      scaledCellHeight,
+      cellWidth,
+      cellHeight,
       visibleRows,
       visibleCols,
-      scaledScrollX,
-      scaledScrollY,
+      scrollX,
+      scrollY,
       devicePixelRatio
     );
   }
 
   /**
-   * Load a CSV file (large file support with virtual data store)
+   * Load a CSV file
    */
   async loadFile(
     file: File,
     onProgress?: (percent: number) => void
   ): Promise<void> {
     console.log(`Loading file: ${file.name}`);
-
-    // Load into virtual data store
     await this.virtualDataStore.loadFile(file, onProgress);
-
-    // Update grid dimensions based on file
     this.rows = this.virtualDataStore.getRowCount();
 
-    // Detect columns from first row
     const firstRow = await this.virtualDataStore.getRow(0);
     if (firstRow) {
       this.columns = firstRow.cells.length;
     }
 
     this.usingVirtualData = true;
-
     console.log(`File loaded: ${this.rows} rows, ${this.columns} columns`);
   }
 
   /**
-   * Get cell value (handles both virtual and regular data)
+   * Get cell value
    */
   async getCellValue(row: number, col: number): Promise<string> {
     if (this.usingVirtualData) {
@@ -581,5 +575,6 @@ export class Parallium {
     this.textRenderer?.destroy();
     this.resizeObserver?.disconnect();
     this.virtualDataStore.clear();
+    this.editInput?.remove();
   }
 }

@@ -1,4 +1,3 @@
-// text-renderer.ts
 // 逻辑：外部传入 cellWidth / cellHeight / scrollOffsetX / scrollOffsetY 全是「逻辑单位」（CSS px）
 // 在 renderGrid 里统一乘 this.devicePixelRatio 变成像素，和 WebGPU 的 grid 完全对齐。
 // textCanvas.width / height 使用像素尺寸；CSS width / height 用 rect.width / height（CSS px）。
@@ -35,6 +34,8 @@ export class TextRenderer {
     this.textCanvas.style.pointerEvents = "none";
     this.textCanvas.style.left = "0";
     this.textCanvas.style.top = "0";
+    // Ensure we default to top-left of the offset parent,
+    // but we will sync exact coordinates in resize().
 
     canvas.parentElement?.appendChild(this.textCanvas);
 
@@ -46,11 +47,10 @@ export class TextRenderer {
   }
 
   /**
-   * Resize text canvas to match main canvas (pixel size + CSS size)
+   * Resize text canvas to match main canvas (pixel size + CSS size + Position)
    *
-   * @param pixelWidth - canvas 像素宽度（通常 = rect.width * DPR）
-   * @param pixelHeight - canvas 像素高度
-   * @param devicePixelRatio - 当前 DPR
+   * This now also syncs the Position (left/top) to ensure the overlay
+   * stays perfectly aligned if the main canvas moves (e.g. via margin:auto).
    */
   resize(
     pixelWidth: number,
@@ -59,14 +59,28 @@ export class TextRenderer {
   ): void {
     this.devicePixelRatio = devicePixelRatio;
 
-    // 内部像素分辨率
-    this.textCanvas.width = pixelWidth;
-    this.textCanvas.height = pixelHeight;
+    // 1. Match Internal Resolution (Pixel Size)
+    // Only write if changed to avoid Canvas context reset if possible
+    if (
+      this.textCanvas.width !== pixelWidth ||
+      this.textCanvas.height !== pixelHeight
+    ) {
+      this.textCanvas.width = pixelWidth;
+      this.textCanvas.height = pixelHeight;
+    }
 
-    // CSS 大小保持和主 canvas 一致（CSS px）
-    const rect = this.canvas.getBoundingClientRect();
-    this.textCanvas.style.width = `${rect.width}px`;
-    this.textCanvas.style.height = `${rect.height}px`;
+    // 2. Match CSS Size (Visual Size)
+    // We calculate CSS size from the target pixel size to ensure consistency
+    const cssWidth = pixelWidth / devicePixelRatio;
+    const cssHeight = pixelHeight / devicePixelRatio;
+    this.textCanvas.style.width = `${cssWidth}px`;
+    this.textCanvas.style.height = `${cssHeight}px`;
+
+    // 3. Match CSS Position (Alignment)
+    // This fixes the issue where resizing the tab moves the main grid (e.g. centering)
+    // but the absolute text overlay stayed at left:0.
+    this.textCanvas.style.left = `${this.canvas.offsetLeft}px`;
+    this.textCanvas.style.top = `${this.canvas.offsetTop}px`;
   }
 
   /**
@@ -90,7 +104,6 @@ export class TextRenderer {
     options?: RenderCellOptions,
     dpr: number = 1
   ): void {
-
     const baseFontSize = options?.fontSize ?? 14; // 逻辑 fontSize
     const fontSize = baseFontSize * dpr; // 像素 fontSize
     const fontFamily = options?.fontFamily ?? "monospace";
@@ -135,8 +148,8 @@ export class TextRenderer {
     const maxWidth = width - paddingX * 2;
     let displayText = text;
 
+    // Simple binary search truncation
     if (this.textCtx.measureText(text).width > maxWidth) {
-      // 简单的二分截断 "...”
       let low = 0;
       let high = text.length;
 
@@ -159,9 +172,6 @@ export class TextRenderer {
 
   /**
    * Render grid of text values
-   *
-   * 注意：cellWidth / cellHeight / scrollOffsetX / scrollOffsetY 仍然是「逻辑单位（CSS px）」，
-   * 这里统一乘 this.devicePixelRatio 变成像素，和 WebGPU 的 grid 保持一致。
    */
   renderGrid(
     data: Map<string, string>,
@@ -173,9 +183,35 @@ export class TextRenderer {
     scrollOffsetY: number = 0, // 逻辑单位
     devicePixelRatio?: number
   ): void {
-    this.clear();
+    // 1. Get current DPR
+    const dpr = devicePixelRatio ?? window.devicePixelRatio ?? 1;
 
-    const dpr = devicePixelRatio ?? this.devicePixelRatio;
+    // 2. Auto-Resize & Re-Align
+    // We check the MAIN canvas bounding box to see what size/pos it currently is.
+    const rect = this.canvas.getBoundingClientRect();
+    const targetPixelWidth = Math.max(1, Math.round(rect.width * dpr));
+    const targetPixelHeight = Math.max(1, Math.round(rect.height * dpr));
+
+    // We must check if size OR position (offset) needs updating.
+    // However, offsetLeft checks are cheap, so we just call resize if dimensions change,
+    // AND we enforce position update every frame to handle layout shifts (like flex/margin changes).
+    if (
+      this.textCanvas.width !== targetPixelWidth ||
+      this.textCanvas.height !== targetPixelHeight ||
+      this.devicePixelRatio !== dpr
+    ) {
+      this.resize(targetPixelWidth, targetPixelHeight, dpr);
+    } else {
+      // Always sync position just in case the layout moved without resizing (e.g. margin change)
+      if (this.textCanvas.style.left !== `${this.canvas.offsetLeft}px`) {
+        this.textCanvas.style.left = `${this.canvas.offsetLeft}px`;
+      }
+      if (this.textCanvas.style.top !== `${this.canvas.offsetTop}px`) {
+        this.textCanvas.style.top = `${this.canvas.offsetTop}px`;
+      }
+    }
+
+    this.clear();
 
     // 逻辑 -> 像素
     const cellWidthPx = cellWidth * dpr;
@@ -183,25 +219,50 @@ export class TextRenderer {
     const scrollOffsetXPx = scrollOffsetX * dpr;
     const scrollOffsetYPx = scrollOffsetY * dpr;
 
+    // Optimization: Clip to avoid drawing text far outside visible area
+    this.textCtx.save();
+    this.textCtx.beginPath();
+    this.textCtx.rect(0, 0, this.textCanvas.width, this.textCanvas.height);
+    this.textCtx.clip();
+
     for (let row = visibleRows.start; row <= visibleRows.end; row++) {
       for (let col = visibleCols.start; col <= visibleCols.end; col++) {
         const key = `${row},${col}`;
         const value = data.get(key);
         if (!value) continue;
 
-        // 每个 cell 的像素位置（和 WebGPU 的 grid 算法一致：row/col * cellSizePx - scrollOffsetPx）
         const xPx = col * cellWidthPx - scrollOffsetXPx;
         const yPx = row * cellHeightPx - scrollOffsetYPx;
 
-        this.renderCell(value, xPx, yPx, cellWidthPx, cellHeightPx, {
-          fontSize: 14,
-          fontFamily: "monospace",
-          color: "#000000",
-          align: "left",
-          verticalAlign: "middle",
-        }, dpr);
+        // Skip if completely out of bounds (simple culling)
+        if (
+          xPx > this.textCanvas.width ||
+          yPx > this.textCanvas.height ||
+          xPx + cellWidthPx < 0 ||
+          yPx + cellHeightPx < 0
+        ) {
+          continue;
+        }
+
+        this.renderCell(
+          value,
+          xPx,
+          yPx,
+          cellWidthPx,
+          cellHeightPx,
+          {
+            fontSize: 14,
+            fontFamily: "monospace",
+            color: "#000000",
+            align: "left",
+            verticalAlign: "middle",
+          },
+          dpr
+        );
       }
     }
+
+    this.textCtx.restore();
   }
 
   /**

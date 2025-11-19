@@ -1,7 +1,7 @@
-import { NgenGrid } from "../src/index.js";
+import { Parallium } from "../src/index.js";
 
 async function main() {
-  const canvas = document.getElementById("ngengrid") as HTMLCanvasElement;
+  const canvas = document.getElementById("parallium") as HTMLCanvasElement;
 
   if (!canvas) {
     showError("Canvas element not found");
@@ -10,7 +10,7 @@ async function main() {
 
   try {
     // Create and initialize the grid
-    const grid = new NgenGrid({
+    const grid = new Parallium({
       canvas,
       rows: 1_000_000, // Start with 1 million rows!
       columns: 26,
@@ -20,7 +20,7 @@ async function main() {
 
     await grid.init();
 
-    console.log("NgenGrid initialized successfully!");
+    console.log("Parallium initialized successfully!");
 
     // Set up file input handler
     const fileInput = document.getElementById("fileInput") as HTMLInputElement;
@@ -49,7 +49,7 @@ async function main() {
       });
     }
   } catch (error) {
-    console.error("Failed to initialize NgenGrid:", error);
+    console.error("Failed to initialize Parallium:", error);
     showError(error instanceof Error ? error.message : "Unknown error");
   }
 }

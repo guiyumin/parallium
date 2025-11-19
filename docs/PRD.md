@@ -1,8 +1,8 @@
-# NgenGrid - Product Requirements Document
+# Parallium - Product Requirements Document
 
 ## Project Overview
 
-**Name:** NgenGrid (Engine Grid / Next-Gen Grid)
+**Name:** Parallium
 
 **Tagline:** High-performance, local-first spreadsheet powered by WebGPU
 
@@ -203,7 +203,7 @@ B1: =A1 + A2    (300)
 
 **User Flow:**
 1. User drags 5GB CSV file into browser
-2. NgenGrid streams file, parses with GPU acceleration
+2. Parallium streams file, parses with GPU acceleration
 3. Progress bar shows indexing status
 4. Within seconds, user can:
    - Scroll smoothly through millions of rows

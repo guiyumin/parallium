@@ -1,7 +1,7 @@
 /**
- * Configuration options for NgenGrid
+ * Configuration options for Parallium
  */
-export interface NgenGridOptions {
+export interface ParalliumOptions {
   /** Canvas element to render the grid */
   canvas: HTMLCanvasElement;
 

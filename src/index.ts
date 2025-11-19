@@ -1,2 +1,2 @@
-export { NgenGrid } from './core/NgenGrid.js';
-export type { NgenGridOptions } from './core/types.js';
+export { Parallium } from './core/Parallium.js';
+export type { ParalliumOptions } from './core/types.js';

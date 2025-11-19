@@ -1,5 +1,5 @@
 {
-  "name": "ngengrid",
+  "name": "parallium",
   "version": "0.1.0",
   "description": "High-performance, local-first spreadsheet powered by WebGPU",
   "type": "module",

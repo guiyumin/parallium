@@ -1,6 +1,6 @@
-# ngengrid Overview
+# Parallium Overview
 
-**ngengrid** is a high-performance, local-first spreadsheet application powered by WebGPU. It is designed to handle large datasets efficiently by leveraging modern browser capabilities.
+**Parallium** is a high-performance, local-first spreadsheet application powered by WebGPU. It is designed to handle large datasets efficiently by leveraging modern browser capabilities.
 
 ## Key Features
 
@@ -15,7 +15,7 @@
 The project is structured around several core components:
 
 ### Core
-- **`NgenGrid`**: The main controller class that orchestrates the renderer, data stores, and user interactions.
+- **`Parallium`**: The main controller class that orchestrates the renderer, data stores, and user interactions.
 - **`SelectionManager`**: Manages cell selection and editing states.
 
 ### Rendering
@@ -31,10 +31,10 @@ The project is structured around several core components:
 To initialize the grid:
 
 ```typescript
-import { NgenGrid } from './core/NgenGrid';
+import { Parallium } from './core/Parallium';
 
 const canvas = document.getElementById('grid-canvas') as HTMLCanvasElement;
-const grid = new NgenGrid({
+const grid = new Parallium({
   canvas,
   rows: 1000,
   columns: 26,

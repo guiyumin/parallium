@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => {
       target: 'esnext',
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),
-        name: 'NgenGrid',
-        fileName: 'ngengrid',
+        name: 'Parallium',
+        fileName: 'parallium',
       },
       rollupOptions: {
         external: [],

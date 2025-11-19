@@ -1,4 +1,4 @@
-import type { NgenGridOptions } from "./types.js";
+import type { ParalliumOptions } from "./types.js";
 import { WebGPURenderer } from "../render/WebGPURenderer.js";
 import { TextRenderer } from "../render/TextRenderer.js";
 import { GridDataStore } from "../data/GridDataStore.js";
@@ -6,9 +6,9 @@ import { VirtualDataStore } from "../data/VirtualDataStore.js";
 import { SelectionManager } from "./SelectionManager.js";
 
 /**
- * Main NgenGrid class - High-performance spreadsheet powered by WebGPU
+ * Main Parallium class - High-performance spreadsheet powered by WebGPU
  */
-export class NgenGrid {
+export class Parallium {
   private canvas: HTMLCanvasElement;
   private renderer: WebGPURenderer | null = null;
   private textRenderer: TextRenderer | null = null;
@@ -26,7 +26,7 @@ export class NgenGrid {
   private devicePixelRatio: number = 1;
 
 
-  constructor(options: NgenGridOptions) {
+  constructor(options: ParalliumOptions) {
     this.canvas = options.canvas;
     this.rows = options.rows ?? 1000;
     this.columns = options.columns ?? 26;

@@ -102,26 +102,12 @@ export class Parallium {
    * Handle canvas resize
    */
   private handleResize(): void {
-    if (!this.textRenderer) return;
-
-    // Update DPR
+    // Update DPR - the actual canvas resize will happen in the next render() call
+    // This prevents black flashes during resize by letting WebGPU renderer handle it
     this.devicePixelRatio = window.devicePixelRatio || 1;
 
-    // Get new CSS size
-    const rect = this.canvas.getBoundingClientRect();
-
-    // Update canvas buffer size to match CSS size * DPR
-    const pixelWidth = Math.round(rect.width * this.devicePixelRatio);
-    const pixelHeight = Math.round(rect.height * this.devicePixelRatio);
-
-    // Always update canvas pixel dimensions to match CSS dimensions
-    this.canvas.width = pixelWidth;
-    this.canvas.height = pixelHeight;
-
-    // Note: We don't strictly need to call this.textRenderer.resize() here
-    // because renderGrid() now handles it automatically, but doing it here
-    // ensures the overlay is resized immediately even if rendering is paused.
-    this.textRenderer.resize(pixelWidth, pixelHeight, this.devicePixelRatio);
+    // Note: We don't resize the canvas here to avoid clearing it mid-resize
+    // The WebGPURenderer.render() will detect size changes and resize accordingly
   }
 
   /**

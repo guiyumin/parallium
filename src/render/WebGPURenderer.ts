@@ -159,6 +159,7 @@ export class WebGPURenderer {
       this.canvas.width = pixelWidth;
       this.canvas.height = pixelHeight;
 
+      // Reconfigure context immediately after resize to prevent black flash
       this.context.configure({
         device: this.device,
         format: this.canvasFormat,
@@ -167,6 +168,9 @@ export class WebGPURenderer {
 
       this.pixelWidth = pixelWidth;
       this.pixelHeight = pixelHeight;
+
+      // Immediately render to the new size to avoid showing empty canvas
+      // (The render will continue below with updated dimensions)
     }
 
     // 把逻辑单位转换为像素单位（和 shader 保持一致）

@@ -28,13 +28,14 @@ fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
         vec2f( 1.0,  1.0),
     );
 
+    // UVs with Y flipped (0 at top, 1 at bottom) for standard screen coordinates
     var uvs = array<vec2f, 6>(
-        vec2f(0.0, 0.0),
-        vec2f(1.0, 0.0),
-        vec2f(0.0, 1.0),
-        vec2f(0.0, 1.0),
-        vec2f(1.0, 0.0),
-        vec2f(1.0, 1.0),
+        vec2f(0.0, 1.0),  // bottom-left
+        vec2f(1.0, 1.0),  // bottom-right
+        vec2f(0.0, 0.0),  // top-left
+        vec2f(0.0, 0.0),  // top-left
+        vec2f(1.0, 1.0),  // bottom-right
+        vec2f(1.0, 0.0),  // top-right
     );
 
     var output: VertexOutput;
@@ -45,8 +46,8 @@ fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    let viewportX = input.uv.x * uniforms.canvasWidth;
-    let viewportY = input.uv.y * uniforms.canvasHeight;
+    let viewportX = floor(input.uv.x * uniforms.canvasWidth);
+    let viewportY = floor(input.uv.y * uniforms.canvasHeight);
 
     let cellWidth = uniforms.cellWidth;
     let cellHeight = uniforms.cellHeight;
@@ -58,14 +59,19 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let adjustedX = viewportX + scrollX;
     let adjustedY = viewportY + scrollY;
 
-    // 高精度取模（比 % 更稳，误差永远小于 0.0001px）
-    let cellOffsetX = fract(adjustedX / cellWidth) * cellWidth;
-    let cellOffsetY = fract(adjustedY / cellHeight) * cellHeight;
+    // Calculate which cell we're in
+    let cellCol = floor(adjustedX / cellWidth);
+    let cellRow = floor(adjustedY / cellHeight);
+
+    // Position within the cell (0 to cellWidth-1, 0 to cellHeight-1)
+    let cellOffsetX = adjustedX - cellCol * cellWidth;
+    let cellOffsetY = adjustedY - cellRow * cellHeight;
 
     let lineThickness: f32 = 1.0;
 
-    let isVerticalLine = (cellOffsetX >= cellWidth - lineThickness);
-    let isHorizontalLine = (cellOffsetY >= cellHeight - lineThickness);
+    // Draw lines on LEFT/TOP edges of cells (except for row 0 and col 0)
+    let isVerticalLine = (cellOffsetX < lineThickness) && (cellCol > 0.0);
+    let isHorizontalLine = (cellOffsetY < lineThickness) && (cellRow > 0.0);
 
     if (isVerticalLine || isHorizontalLine) {
         return vec4f(0.8, 0.8, 0.8, 1.0);

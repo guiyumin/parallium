@@ -78,7 +78,7 @@ export class WebGPURenderer {
       throw new Error("Device not initialized");
     }
 
-    // Uniform buffer：6 个 f32（24 字节），对齐需要 16 的倍数，直接给 64 字节
+    // Uniform buffer：8 个 f32（32 字节），对齐需要 16 的倍数，直接给 64 字节
     this.uniformBuffer = this.device.createBuffer({
       label: "Grid Uniforms",
       size: 64,
@@ -175,13 +175,16 @@ export class WebGPURenderer {
     const scrollOffsetXPx = (options.scrollOffsetX ?? 0) * dpr;
     const scrollOffsetYPx = (options.scrollOffsetY ?? 0) * dpr;
 
+    // Split scroll offsets for high precision (shader expects High/Low pairs)
     const uniformData = new Float32Array([
       this.canvas.width, // canvasWidth（像素）
       this.canvas.height, // canvasHeight（像素）
       cellWidthPx, // cellWidth（像素）
       cellHeightPx, // cellHeight（像素）
-      scrollOffsetXPx, // scrollOffsetX（像素）
-      scrollOffsetYPx, // scrollOffsetY（像素）
+      scrollOffsetXPx, // scrollOffsetXHigh（像素）
+      0, // scrollOffsetXLow (not needed for now, but shader expects it)
+      scrollOffsetYPx, // scrollOffsetYHigh（像素）
+      0, // scrollOffsetYLow (not needed for now, but shader expects it)
     ]);
 
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData);

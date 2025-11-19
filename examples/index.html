@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NgenGrid - High Performance Spreadsheet</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #1e1e1e;
+        color: #fff;
+        overflow: hidden;
+      }
+
+      #app {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        padding: 1rem 2rem;
+        background: #252525;
+        border-bottom: 1px solid #333;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+
+      .subtitle {
+        font-size: 0.875rem;
+        color: #888;
+        margin-top: 0.25rem;
+      }
+
+      main {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .error {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #ff4444;
+        color: white;
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 500px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>NgenGrid</h1>
+        <p class="subtitle">High-performance spreadsheet powered by WebGPU</p>
+        <div style="margin-top: 1rem">
+          <input
+            type="file"
+            id="fileInput"
+            accept=".csv,.txt,.log"
+            style="margin-right: 1rem"
+          />
+          <span id="fileStatus" style="color: #888; font-size: 0.875rem"></span>
+        </div>
+      </header>
+      <main>
+        <canvas id="ngengrid"></canvas>
+      </main>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

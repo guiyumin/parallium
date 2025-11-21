@@ -198,12 +198,45 @@ export class VirtualDataStore {
   }
 
   /**
-   * Simple CSV line parser
-   * TODO: Handle quoted fields with commas, escaped quotes, etc.
+   * RFC 4180 compliant CSV line parser
+   * Handles quoted fields with commas, escaped quotes, etc.
    */
   private parseCSVLine(line: string): string[] {
-    // Simple split for now - will enhance later
-    return line.split(',').map(cell => cell.trim());
+    const cells: string[] = [];
+    let currentCell = '';
+    let insideQuotes = false;
+    let i = 0;
+
+    while (i < line.length) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+
+      if (char === '"') {
+        if (insideQuotes && nextChar === '"') {
+          // Escaped quote: "" -> "
+          currentCell += '"';
+          i += 2;
+        } else {
+          // Toggle quote state
+          insideQuotes = !insideQuotes;
+          i++;
+        }
+      } else if (char === ',' && !insideQuotes) {
+        // Field separator (only outside quotes)
+        cells.push(currentCell.trim());
+        currentCell = '';
+        i++;
+      } else {
+        // Regular character
+        currentCell += char;
+        i++;
+      }
+    }
+
+    // Push the last cell
+    cells.push(currentCell.trim());
+
+    return cells;
   }
 
   /**

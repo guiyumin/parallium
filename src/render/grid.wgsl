@@ -52,7 +52,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let cellWidth = uniforms.cellWidth;
     let cellHeight = uniforms.cellHeight;
 
-    // 高精度滚动偏移
+    // High precision scroll offset
     let scrollX = uniforms.scrollOffsetXHigh + uniforms.scrollOffsetXLow;
     let scrollY = uniforms.scrollOffsetYHigh + uniforms.scrollOffsetYLow;
 

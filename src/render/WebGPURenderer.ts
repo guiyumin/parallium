@@ -1,17 +1,17 @@
 // webgpurenderer.ts
-// 逻辑：外部传入 cellWidth / cellHeight / scrollOffsetX / scrollOffsetY 全部是「逻辑单位」（CSS px）
-// 在 render() 里统一乘 devicePixelRatio 转成像素，再写入 uniform。
-// canvas.width / height 使用像素尺寸（rect * DPR），和 TextRenderer 保持一致。
+// Logic: cellWidth / cellHeight / scrollOffsetX / scrollOffsetY passed from outside are all in "logical units" (CSS px)
+// In render(), they are uniformly multiplied by devicePixelRatio to convert to pixels, then written to uniforms.
+// canvas.width / height use pixel dimensions (rect * DPR), consistent with TextRenderer.
 
 import gridShaderCode from "./grid.wgsl?raw";
 
 export interface GridRenderOptions {
   rows: number;
   columns: number;
-  cellWidth: number; // 逻辑单位（CSS px）
-  cellHeight: number; // 逻辑单位（CSS px）
-  scrollOffsetX?: number; // 逻辑单位（CSS px）
-  scrollOffsetY?: number; // 逻辑单位（CSS px）
+  cellWidth: number; // logical unit (CSS px)
+  cellHeight: number; // logical unit (CSS px)
+  scrollOffsetX?: number; // logical unit (CSS px)
+  scrollOffsetY?: number; // logical unit (CSS px)
   devicePixelRatio?: number;
 }
 
@@ -44,7 +44,7 @@ export class WebGPURenderer {
       throw new Error("WebGPU is not supported in this browser");
     }
 
-    const adapter = await navigator.gpu.requestAdapter();
+    const adapter = await navigator.gpu?.requestAdapter();
     if (!adapter) {
       throw new Error("Failed to get WebGPU adapter");
     }
@@ -58,7 +58,7 @@ export class WebGPURenderer {
 
     this.canvasFormat = navigator.gpu.getPreferredCanvasFormat();
 
-    // 先配置一次，具体宽高在 render 时会根据 DPR 调整并重新配置（如有必要）
+    // Configure once first, specific width/height will be adjusted and reconfigured in render based on DPR (if necessary)
     this.context.configure({
       device: this.device,
       format: this.canvasFormat,
@@ -78,7 +78,7 @@ export class WebGPURenderer {
       throw new Error("Device not initialized");
     }
 
-    // Uniform buffer：8 个 f32（32 字节），对齐需要 16 的倍数，直接给 64 字节
+    // Uniform buffer: 8 f32 values (32 bytes), alignment requires multiples of 16, so we allocate 64 bytes
     this.uniformBuffer = this.device.createBuffer({
       label: "Grid Uniforms",
       size: 64,
@@ -117,7 +117,7 @@ export class WebGPURenderer {
   }
 
   /**
-   * 当前 canvas 的像素宽高（给 TextRenderer 用来 resize）
+   * Current canvas pixel width and height (for TextRenderer to use for resize)
    */
   getPixelWidth(): number {
     return this.pixelWidth;
@@ -130,7 +130,7 @@ export class WebGPURenderer {
   /**
    * Render the grid
    *
-   * 注意：cellWidth / cellHeight / scrollOffsetX / scrollOffsetY 都是「逻辑单位」，内部会乘 DPR 变成像素。
+   * Note: cellWidth / cellHeight / scrollOffsetX / scrollOffsetY are all in "logical units", internally multiplied by DPR to become pixels.
    */
   render(options: GridRenderOptions): void {
     if (
@@ -146,12 +146,12 @@ export class WebGPURenderer {
 
     const dpr = options.devicePixelRatio ?? window.devicePixelRatio ?? 1;
 
-    // 用 DOM 尺寸 * DPR 得到像素尺寸
+    // Get pixel dimensions using DOM dimensions * DPR
     const rect = this.canvas.getBoundingClientRect();
     const pixelWidth = Math.max(1, Math.round(rect.width * dpr));
     const pixelHeight = Math.max(1, Math.round(rect.height * dpr));
 
-    // 如果像素尺寸变化了，更新 canvas 和 context
+    // If pixel dimensions changed, update canvas and context
     if (
       this.canvas.width !== pixelWidth ||
       this.canvas.height !== pixelHeight
@@ -173,7 +173,7 @@ export class WebGPURenderer {
       // (The render will continue below with updated dimensions)
     }
 
-    // 把逻辑单位转换为像素单位（和 shader 保持一致）
+    // Convert logical units to pixel units (consistent with shader)
     const cellWidthPx = options.cellWidth * dpr;
     const cellHeightPx = options.cellHeight * dpr;
     const scrollOffsetXPx = (options.scrollOffsetX ?? 0) * dpr;
@@ -181,13 +181,13 @@ export class WebGPURenderer {
 
     // Split scroll offsets for high precision (shader expects High/Low pairs)
     const uniformData = new Float32Array([
-      this.canvas.width, // canvasWidth（像素）
-      this.canvas.height, // canvasHeight（像素）
-      cellWidthPx, // cellWidth（像素）
-      cellHeightPx, // cellHeight（像素）
-      scrollOffsetXPx, // scrollOffsetXHigh（像素）
+      this.canvas.width, // canvasWidth (pixels)
+      this.canvas.height, // canvasHeight (pixels)
+      cellWidthPx, // cellWidth (pixels)
+      cellHeightPx, // cellHeight (pixels)
+      scrollOffsetXPx, // scrollOffsetXHigh (pixels)
       0, // scrollOffsetXLow (not needed for now, but shader expects it)
-      scrollOffsetYPx, // scrollOffsetYHigh（像素）
+      scrollOffsetYPx, // scrollOffsetYHigh (pixels)
       0, // scrollOffsetYLow (not needed for now, but shader expects it)
     ]);
 
@@ -209,7 +209,7 @@ export class WebGPURenderer {
 
     renderPass.setPipeline(this.renderPipeline);
     renderPass.setBindGroup(0, this.bindGroup);
-    // 2 个三角形，画满屏
+    // 2 triangles to fill the screen
     renderPass.draw(6);
     renderPass.end();
 

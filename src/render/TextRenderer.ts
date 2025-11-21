@@ -1,6 +1,6 @@
-// 逻辑：外部传入 cellWidth / cellHeight / scrollOffsetX / scrollOffsetY 全是「逻辑单位」（CSS px）
-// 在 renderGrid 里统一乘 this.devicePixelRatio 变成像素，和 WebGPU 的 grid 完全对齐。
-// textCanvas.width / height 使用像素尺寸；CSS width / height 用 rect.width / height（CSS px）。
+// Logic: cellWidth / cellHeight / scrollOffsetX / scrollOffsetY passed from outside are all in "logical units" (CSS px)
+// In renderGrid, they are uniformly multiplied by this.devicePixelRatio to become pixels, fully aligned with WebGPU grid.
+// textCanvas.width / height use pixel dimensions; CSS width / height use rect.width / height (CSS px).
 
 export interface VisibleRange {
   start: number;
@@ -28,7 +28,7 @@ export class TextRenderer {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
 
-    // 叠加一个透明 canvas 专门画文字
+    // Overlay a transparent canvas specifically for drawing text
     this.textCanvas = document.createElement("canvas");
     this.textCanvas.style.position = "absolute";
     this.textCanvas.style.pointerEvents = "none";
@@ -93,7 +93,7 @@ export class TextRenderer {
   /**
    * Render text in a single cell
    *
-   * x / y / width / height 现在都是「像素单位」
+   * x / y / width / height are now all in "pixel units"
    */
   renderCell(
     text: string,
@@ -104,8 +104,8 @@ export class TextRenderer {
     options?: RenderCellOptions,
     dpr: number = 1
   ): void {
-    const baseFontSize = options?.fontSize ?? 14; // 逻辑 fontSize
-    const fontSize = baseFontSize * dpr; // 像素 fontSize
+    const baseFontSize = options?.fontSize ?? 14; // logical fontSize
+    const fontSize = baseFontSize * dpr; // pixel fontSize
     const fontFamily = options?.fontFamily ?? "monospace";
     const color = options?.color ?? "#000";
     const align = options?.align ?? "left";
@@ -114,13 +114,13 @@ export class TextRenderer {
     this.textCtx.font = `${fontSize}px ${fontFamily}`;
     this.textCtx.fillStyle = color;
 
-    // padding 也按逻辑单位乘 DPR
+    // padding also multiply logical units by DPR
     const paddingX = 6 * dpr;
     const paddingY = 2 * dpr;
     let textX = x + paddingX;
     let textY = y;
 
-    // 水平对齐
+    // horizontal alignment
     if (align === "center") {
       textX = x + width / 2;
       this.textCtx.textAlign = "center";
@@ -132,7 +132,7 @@ export class TextRenderer {
       this.textCtx.textAlign = "left";
     }
 
-    // 垂直对齐（注意 baseline）
+    // vertical alignment (note baseline)
     if (verticalAlign === "middle") {
       this.textCtx.textBaseline = "middle";
       textY = y + height / 2;
@@ -175,12 +175,12 @@ export class TextRenderer {
    */
   renderGrid(
     data: Map<string, string>,
-    cellWidth: number, // 逻辑单位
-    cellHeight: number, // 逻辑单位
+    cellWidth: number, // logical unit
+    cellHeight: number, // logical unit
     visibleRows: VisibleRange,
     visibleCols: VisibleRange,
-    scrollOffsetX: number = 0, // 逻辑单位
-    scrollOffsetY: number = 0, // 逻辑单位
+    scrollOffsetX: number = 0, // logical unit
+    scrollOffsetY: number = 0, // logical unit
     devicePixelRatio?: number
   ): void {
     // 1. Get current DPR
@@ -213,7 +213,7 @@ export class TextRenderer {
 
     this.clear();
 
-    // 逻辑 -> 像素
+    // logical -> pixels
     const cellWidthPx = cellWidth * dpr;
     const cellHeightPx = cellHeight * dpr;
     const scrollOffsetXPx = scrollOffsetX * dpr;
@@ -270,6 +270,6 @@ export class TextRenderer {
    */
   destroy(): void {
     this.textCanvas.remove();
-    // 其他引用交给 GC
+    // other references left to GC
   }
 }
